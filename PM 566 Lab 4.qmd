@@ -1,0 +1,105 @@
+---
+title: "PM 566 Lab 4"
+author: "Ziquan 'Harrison' Liu"
+format: 
+  html:
+    embed-resources: true
+fig-width: 8
+fig-heigth: 6
+---
+# Step 1 Read in the data
+```{r}
+met <- read.csv("/Users/ldh/Library/Mobile Documents/com~apple~CloudDocs/USC PhD/STUDY DOCUMENTS/Fall 2025/PM 566/PM566labs/Lab 3/met_all.gz")
+```
+
+```{r}
+library(ggplot2)
+library(data.table)
+library(dplyr)
+```
+
+```{r}
+head(met)
+summary(met)
+```
+
+# Step 2 Prepare the data
+```{r}
+# Remove temperatures less than -17C 
+met <- met[met$temp > -17, ]
+summary(met$temp)
+hist(met$temp)
+```
+
+```{r}
+# Make sure there is no missing data in the key variables coded as 9999, 999, etc.
+
+```
+
+```{r}
+# Generate a date variable using the functions as.Date() (hint: You will need the following to create a date paste(year, month, day, sep = "-") ).
+
+```
+
+```{r}
+# Using the data.table::week function, keep the observations of the first week of the month. 
+
+```
+
+```{r}
+# Compute the mean by station of the variables temp , rh , wind.sp , vis.dist , dew.point , lat , lon and elev .
+
+```
+
+```{r}
+# Create a region variable for NW, SW, NE, SE based on lon = -98.00 and lat = 39.71 degrees
+
+```
+
+```{r}
+# Create a categorical variable for elevation as in the lecture slides
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+
+
+
+
+
+
+
+
+
+
