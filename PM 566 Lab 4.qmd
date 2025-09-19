@@ -9,14 +9,25 @@ fig-heigth: 6
 ---
 # Step 1 Read in the data
 ```{r}
-met <- read.csv("/Users/ldh/Library/Mobile Documents/com~apple~CloudDocs/USC PhD/STUDY DOCUMENTS/Fall 2025/PM 566/PM566labs/Lab 3/met_all.gz")
-```
-
-```{r}
 library(ggplot2)
 library(data.table)
 library(dplyr)
+library(leaflet)
+library(tidyverse)
+library(R.utils)
 ```
+
+```{r}
+if (!file.exists("met_all.gz"))
+  download.file(
+    url = "https://raw.githubusercontent.com/USCbiostats/data-science-data/master/02_met/met_all.gz",
+    destfile = "met_all.gz",
+    method   = "libcurl",
+    timeout  = 60
+    )
+met <- data.table::fread("met_all.gz")
+```
+
 
 ```{r}
 head(met)
@@ -33,73 +44,138 @@ hist(met$temp)
 
 ```{r}
 # Make sure there is no missing data in the key variables coded as 9999, 999, etc.
-
+met$elev[met$elev == 9999.0] <- NA
 ```
 
 ```{r}
 # Generate a date variable using the functions as.Date() (hint: You will need the following to create a date paste(year, month, day, sep = "-") ).
-
+met[, week := week(as.Date(paste(year,month,day,sep="-")))]
 ```
 
 ```{r}
 # Using the data.table::week function, keep the observations of the first week of the month. 
-
+met <- met[week == min(week, na.rm = TRUE)]
 ```
 
 ```{r}
 # Compute the mean by station of the variables temp , rh , wind.sp , vis.dist , dew.point , lat , lon and elev .
+met_avg <- met[,.(temp=mean(temp,na.rm=TRUE), rh=mean(rh,na.rm=TRUE),
+               wind.sp=mean(wind.sp,na.rm=TRUE),
+               vis.dist=mean(vis.dist, na.rm=TRUE),
+               dew.point = mean(dew.point, na.rm=TRUE),
+               lat=mean(lat,na.rm=TRUE), lon=mean(lon,na.rm=TRUE),
+               elev=mean(elev,na.rm=TRUE)), by = "USAFID"
+               ]
 
 ```
 
 ```{r}
 # Create a region variable for NW, SW, NE, SE based on lon = -98.00 and lat = 39.71 degrees
-
+met_avg$region <- ifelse(met_avg$lon > -98 & met_avg$lat >39.71, "north east",
+                         ifelse(met_avg$lon > -98 & met_avg$lat < 39.71, "south east",
+                                ifelse(met_avg$lon < -98 & met_avg$lat >39.71, "north west", "south west")))
+table(met_avg$region)
 ```
 
 ```{r}
 # Create a categorical variable for elevation as in the lecture slides
-
+met_avg$elev_cat <- ifelse(met_avg$elev> 252, "high", "low")
 ```
 
+# Step 3 Use geom_violin to examine the wind speed and dew point by region
 ```{r}
+met_avg %>%
+  filter(!is.na(dew.point))%>% #  # make sure to deal with NAs
+ggplot()+
+  geom_violin(mapping = aes(y=wind.sp, x=1)) +
+  facet_wrap(~region, nrow=2) # use facets (by region in this case)
 
+met_avg %>%
+  filter(!is.na(wind.sp)) %>% # make sure to deal with NAs
+ggplot()+
+  geom_boxplot(mapping = aes(y=rh, fill=region)) +
+  facet_wrap(~region, nrow=2) # use facets
 ```
+## Descrption (Template): The violin plots reveal distinct regional patterns in wind speed distributions. Ihe northeast region shows..., while the northwest region displays.... The southeast region exhibits..., and the southwest region demonstrates.... Overall, the... region appears to have the highest wind speeds, while the... region shows the most concentrated distribution around... m/s.
 
+# Step 4 Use geom_jitter with stat_smooth to examine the association between dew point and wind speed by region
 ```{r}
-
+met_avg %>%
+filter(!is.na(dew.point) & !is.na(wind.sp)) %>% # make sur to deal with NAs
+  ggplot(mapping = aes(x=dew.point, y=wind.sp, color=region))+ # color poiunts by region
+  geom_jitter() + 
+  stat_smooth(method=lm) # fit a linear reg line of region
 ```
+## Description (Template): The scatter plot demonstrates a... relationship between dew point and relative humidity across all regions. All regional regression lines show... slopes, indicating that as dew point increases, relative humidity.... The relationship appears strongest in the... regions, while the... regions show more.... This pattern makes meteorological sense because...
 
+# Step 5 Use geom_bar to create barplots of the weather stations by elevation category colored by region
 ```{r}
-
+met_avg %>%
+filter(!(region %in% NA)) %>% # make sure to deal with NA values
+  ggplot()+
+  geom_bar(mapping=aes(x=elev_cat,fill=region), position = "dodge")+ # Bars by elevation category using position ="dodge"
+  scale_fill_brewer(palette = "PuOr")+ # change colors from the default. (Color region using" scale_fill_brewer see this " as the lab document find the page)
+  labs(title="Number of weather stations by elevation category and region", x="Elevation Category", y= "Count")+ # describe nice labels on the axes and lables
+  theme_bw()
 ```
+## Description (Template): The bar chart reveals significant differences in weather station distribution across regions and elevation categories. The... region has the highest number of stations overall, particularly concentrated at... elevations. The... region shows more stations at high elevations compared to..., which likely reflects.... The... region has the fewest total stations but shows.... This distribution pattern suggests
 
+# Step 6 Use stat_summary to examine mean dew point and wind speed by region with standard deviation error bars
 ```{r}
+met_avg %>%
+filter(!is.na(dew.point)) %>% # make sure to deal with NA values
+  ggplot(mapping=aes(x=region, y=dew.point)) +
+  stat_summary(fun.data="mean_sdl", geom="errorbar") +
+  stat_summary(fun.data="mean_sdl")
 
+met_avg %>%
+filter(!is.na(wind.sp)) %>% # make sure to deal with NA values
+  ggplot(mapping=aes(x=region, y=wind.sp)) +
+  stat_summary(fun.data="mean_sdl", geom="errorbar") +
+  stat_summary(fun.data="mean_sdl")
 ```
+## Description (Template):The region with the highest mean dew point (approximately...°C), indicating.... The... region displays the lowest mean dew point around... °C, suggesting.... The error bars reveal that... region has the most variable conditions, while... region shows...; Regional differences in wind speed are... compared to dew point patterns. The... regions show higher mean wind speeds around... m/s with... confidence intervals, indicating.... The... regions display lower mean wind speeds suggesting...
 
+# Step 7 Make a map showing the spatial trend in relative humidity in the US
 ```{r}
+met_avg2<-met_avg[!is.na(rh)]
+
+# Top five
+top5 <- met_avg2[rank(-rh) <= 10]
+
+rh_pal = colorNumeric(c('blue','purple','yellow'), domain=met_avg2$rh)
+leaflet(met_avg2) %>%
+  addProviderTiles('OpenStreetMap') %>%
+  addCircles(lat=~lat, lng=~lon, color=~rh_pal(rh), label=~paste0(round(rh,2), ' rh'), opacity=1,fillOpacity=1, radius=500) %>%
+  addMarkers(lat=~lat, lng=~lon, label=~paste0(round(rh,2), ' rh'), data = top5) %>%
+  addLegend('bottomleft',pal=rh_pal, values=met_avg2$rh, title="Relative Humidity", opacity=1)
 
 ```
+## Description (Template): The relative humidity map reveals a cleart. gradient across the United States. The eastern regions show... relative humidity values (...%), represented by... colors. The central regions display... humidity levels, while the western regions exhibit... values. The top 10 highest relative humidity locations are predominantly located in..., which reflects the influence of.... This pattern demonstrates how... and... factors affect regional humidity distributions.
 
+# Step 8 Use a ggplot extension
 ```{r}
-
+# cloud plot
+v8 <- ggplot(
+  data = met_avg %>% filter(!is.na(wind.sp)), 
+  aes(x = region, y = wind.sp, fill = region)
+) +
+  scale_fill_viridis_d(name = "") +
+  ggdist::stat_halfeye(
+    adjust = .5,
+    width = .6, 
+    justification = -.2,
+    .width = 0, 
+    point_colour = NA
+  ) + 
+  geom_boxplot(
+    width = .12, 
+    outlier.color = NA 
+  ) + 
+  ggdist::stat_dots(
+    side = "left", 
+    justification = 1.1, 
+    binwidth = .004) + 
+  coord_cartesian(xlim = c(1.2, NA),)
+v8+scale_fill_manual(values=c("#669900","#FF99CC","#3399FF","#6633FF"))
 ```
-
-```{r}
-
-```
-
-```{r}
-
-```
-
-
-
-
-
-
-
-
-
-
-
